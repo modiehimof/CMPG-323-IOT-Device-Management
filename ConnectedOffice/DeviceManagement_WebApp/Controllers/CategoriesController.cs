@@ -1,4 +1,7 @@
-﻿using System;
+﻿using System.Runtime.Versioning;
+using System.Runtime.InteropServices;
+using System.Security.Cryptography;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -6,23 +9,24 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using DeviceManagement_WebApp.Data;
+using DeviceManagement_WebApp.Repository;
 using DeviceManagement_WebApp.Models;
 
 namespace DeviceManagement_WebApp.Controllers
 {
     public class CategoriesController : Controller
     {
-        private readonly ConnectedOfficeContext _context;
+        private readonly _RepositoryCategories rpCate;
 
-        public CategoriesController(ConnectedOfficeContext context)
+        public CategoriesController(_RepositoryCategories context)
         {
-            _context = context;
+            rpCate = context;
         }
 
         // GET: Categories
         public async Task<IActionResult> Index()
         {
-            return View(await _context.Category.ToListAsync());
+            return View(await rpCate.allCategories());
         }
 
         // GET: Categories/Details/5
@@ -33,8 +37,7 @@ namespace DeviceManagement_WebApp.Controllers
                 return NotFound();
             }
 
-            var category = await _context.Category
-                .FirstOrDefaultAsync(m => m.CategoryId == id);
+            var category = await rpCate.categoryDetails(id);
             if (category == null)
             {
                 return NotFound();
@@ -56,9 +59,7 @@ namespace DeviceManagement_WebApp.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create([Bind("CategoryId,CategoryName,CategoryDescription,DateCreated")] Category category)
         {
-            category.CategoryId = Guid.NewGuid();
-            _context.Add(category);
-            await _context.SaveChangesAsync();
+            rpCate.categoryCreate(category);
             return RedirectToAction(nameof(Index));
         }
 
@@ -70,7 +71,7 @@ namespace DeviceManagement_WebApp.Controllers
                 return NotFound();
             }
 
-            var category = await _context.Category.FindAsync(id);
+            var category = await rpCate.CategoryGetOne(id);
             if (category == null)
             {
                 return NotFound();
@@ -89,22 +90,7 @@ namespace DeviceManagement_WebApp.Controllers
             {
                 return NotFound();
             }
-            try
-            {
-                _context.Update(category);
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!CategoryExists(category.CategoryId))
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
-            }
+            rpCate.CategoryEdit(id, category);
             return RedirectToAction(nameof(Index));
         }
 
@@ -116,8 +102,7 @@ namespace DeviceManagement_WebApp.Controllers
                 return NotFound();
             }
 
-            var category = await _context.Category
-                .FirstOrDefaultAsync(m => m.CategoryId == id);
+            var category = await rpCate.CategoryGetOne(id);
             if (category == null)
             {
                 return NotFound();
@@ -131,15 +116,10 @@ namespace DeviceManagement_WebApp.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(Guid id)
         {
-            var category = await _context.Category.FindAsync(id);
-            _context.Category.Remove(category);
-            await _context.SaveChangesAsync();
+            var category = await rpCate.categoryDelete(id);
             return RedirectToAction(nameof(Index));
         }
 
-        private bool CategoryExists(Guid id)
-        {
-            return _context.Category.Any(e => e.CategoryId == id);
-        }
+        
     }
 }

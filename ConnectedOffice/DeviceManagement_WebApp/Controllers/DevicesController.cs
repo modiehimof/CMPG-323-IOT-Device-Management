@@ -1,4 +1,6 @@
-﻿using System;
+﻿using System.IO;
+using System.Security.Cryptography;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -6,6 +8,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using DeviceManagement_WebApp.Data;
+using DeviceManagement_WebApp.Repository;
 using DeviceManagement_WebApp.Models;
 
 namespace DeviceManagement_WebApp.Controllers
@@ -13,17 +16,18 @@ namespace DeviceManagement_WebApp.Controllers
     public class DevicesController : Controller
     {
         private readonly ConnectedOfficeContext _context;
+        private readonly _RepositoryDevices dvRepo;
 
-        public DevicesController(ConnectedOfficeContext context)
+        public DevicesController(ConnectedOfficeContext _context,_RepositoryDevices a)
         {
-            _context = context;
+            _context = _context;
+            dvRepo = a;
         }
 
         // GET: Devices
         public async Task<IActionResult> Index()
         {
-            var connectedOfficeContext = _context.Device.Include(d => d.Category).Include(d => d.Zone);
-            return View(await connectedOfficeContext.ToListAsync());
+            return View(await dvRepo.allDevices());
         }
 
         // GET: Devices/Details/5
@@ -34,10 +38,7 @@ namespace DeviceManagement_WebApp.Controllers
                 return NotFound();
             }
 
-            var device = await _context.Device
-                .Include(d => d.Category)
-                .Include(d => d.Zone)
-                .FirstOrDefaultAsync(m => m.DeviceId == id);
+            var device = await dvRepo.DeviceDetails(id);
             if (device == null)
             {
                 return NotFound();
@@ -61,12 +62,8 @@ namespace DeviceManagement_WebApp.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create([Bind("DeviceId,DeviceName,CategoryId,ZoneId,Status,IsActive,DateCreated")] Device device)
         {
-            device.DeviceId = Guid.NewGuid();
-            _context.Add(device);
-            await _context.SaveChangesAsync();
+            dvRepo.DeviceCreate(device);
             return RedirectToAction(nameof(Index));
-
-
         }
 
         // GET: Devices/Edit/5
@@ -77,7 +74,7 @@ namespace DeviceManagement_WebApp.Controllers
                 return NotFound();
             }
 
-            var device = await _context.Device.FindAsync(id);
+            var device = await dvRepo.DeviceGetOne(id);
             if (device == null)
             {
                 return NotFound();
@@ -100,19 +97,11 @@ namespace DeviceManagement_WebApp.Controllers
             }
             try
             {
-                _context.Update(device);
-                await _context.SaveChangesAsync();
+                dvRepo.DeviceEdit(id, device);
             }
-            catch (DbUpdateConcurrencyException)
+            catch (DbUpdateConcurrencyException a)
             {
-                if (!DeviceExists(device.DeviceId))
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
+                throw a;
             }
             return RedirectToAction(nameof(Index));
 
@@ -126,10 +115,7 @@ namespace DeviceManagement_WebApp.Controllers
                 return NotFound();
             }
 
-            var device = await _context.Device
-                .Include(d => d.Category)
-                .Include(d => d.Zone)
-                .FirstOrDefaultAsync(m => m.DeviceId == id);
+            var device = await dvRepo.delete(id);
             if (device == null)
             {
                 return NotFound();
@@ -143,15 +129,10 @@ namespace DeviceManagement_WebApp.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(Guid id)
         {
-            var device = await _context.Device.FindAsync(id);
-            _context.Device.Remove(device);
-            await _context.SaveChangesAsync();
+            dvRepo.DeviceDelete(id);
             return RedirectToAction(nameof(Index));
         }
 
-        private bool DeviceExists(Guid id)
-        {
-            return _context.Device.Any(e => e.DeviceId == id);
-        }
+       
     }
 }
